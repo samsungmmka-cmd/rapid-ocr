@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-table-extractor"
+version = "1.3.0"
+description = "Extract structured tables from PDFs and images, including unclear scans and photos (PyMuPDF + RapidOCR)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pymupdf>=1.24",
+    "rapidocr>=3.0",
+    "onnxruntime>=1.17",
+    "opencv-python>=4.8",
+    "numpy>=1.24",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27"]
+api = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
+
+[project.scripts]
+pdf-tables = "pdf_table_extractor.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["pdf_table_extractor*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "ocr: uses the real RapidOCR models",
+    "slow: takes more than a few seconds",
+]
