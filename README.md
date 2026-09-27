@@ -95,6 +95,8 @@ With `APP_ENV=production`, the API refuses to start unless a key of at least 24 
 3. On Kubernetes or a cloud host, store the key in the platform's secret manager and mount it as a file. Point `API_KEY_FILE` at that file, or inject it as the `API_KEY` environment variable.
 4. To rotate a key, put the new and old keys in the secret, one per line or comma-separated. Move clients to the new key, then remove the old one. No downtime is needed.
 
+**Vercel and other serverless hosts.** `main.py` exposes the FastAPI `app` that Vercel detects. Set `APP_ENV`, `API_KEY` (marked sensitive) and `OCR_MODEL_DIR=/tmp/rapidocr` in the project's environment variables. The dependency bundle is about 411 MB, under Vercel's 500 MB limit. That depends on installing only the headless OpenCV build. `rapidocr` insists on the full `opencv-python` package (116 MB, needs graphics libraries), and the local shim in `vendor/opencv-python-shim` (plus a `[tool.uv]` override in `pyproject.toml`) satisfies that requirement with the headless build instead. Vercel rejects uploads above 4.5 MB.
+
 Serve the API behind HTTPS, through a reverse proxy or load balancer, so the key is never sent in clear text.
 
 Hardening: oversized requests are rejected before multipart parsing. Image frames and PDF pages are validated from their headers and decoded one at a time, with pixel caps. Page ranges are bounded, and client filenames are reduced to a clean base name. When `API_KEY` is unset the API is open, so set it, or put the API behind an authenticating gateway, in production.

@@ -1,0 +1,16 @@
+# Satisfies rapidocr's hard "opencv_python" requirement with the headless
+# OpenCV build. Without this, both opencv-python (116 MB, needs libGL, absent
+# on serverless hosts) and opencv-python-headless get installed into the same
+# cv2/ folder, pushing the Vercel bundle over its 500 MB limit.
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencv-python"
+version = "4.99.0"
+description = "Shim: provides the opencv-python requirement via opencv-python-headless"
+dependencies = ["opencv-python-headless>=4.8"]
+
+[tool.setuptools]
+py-modules = []

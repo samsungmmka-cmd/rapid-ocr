@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: opencv-python
+Version: 4.99.0
+Summary: Shim: provides the opencv-python requirement via opencv-python-headless
+Requires-Dist: opencv-python-headless>=4.8

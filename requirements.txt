@@ -1,3 +1,5 @@
+# Runtime + API dependencies (Vercel installs this file).
+./vendor/opencv-python-shim
 pymupdf>=1.24
 rapidocr>=3.0
 onnxruntime>=1.17

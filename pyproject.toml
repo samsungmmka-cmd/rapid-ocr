@@ -33,3 +33,8 @@ markers = [
     "ocr: uses the real RapidOCR models",
     "slow: takes more than a few seconds",
 ]
+
+[tool.uv]
+# rapidocr hard-requires opencv-python (116 MB, needs libGL). Use only the
+# headless build, which provides the same cv2 module (see vendor/opencv-python-shim).
+override-dependencies = ["opencv-python ; sys_platform == 'never'"]
