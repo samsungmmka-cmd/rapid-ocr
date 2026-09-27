@@ -34,6 +34,10 @@ markers = [
     "slow: takes more than a few seconds",
 ]
 
+[tool.vercel]
+# FastAPI instance for Vercel (defined in pdf_table_extractor/api.py).
+entrypoint = "pdf_table_extractor.api:app"
+
 [tool.uv]
 # rapidocr hard-requires opencv-python (116 MB, needs libGL). Use only the
 # headless build, which provides the same cv2 module (see vendor/opencv-python-shim).

@@ -5,3 +5,5 @@ venv/
 output/
 .env
 secrets/
+*.egg-info/
+build/
