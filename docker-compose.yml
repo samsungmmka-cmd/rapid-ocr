@@ -1,0 +1,27 @@
+# Production: the API key is a Docker secret (file), never an image layer or env var.
+#   1. python -c "import secrets; print(secrets.token_urlsafe(32))" > secrets/api_key
+#   2. docker compose up -d --build
+services:
+  api:
+    build: .
+    image: doc-extraction-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: production
+      API_KEY_FILE: /run/secrets/api_key
+      MAX_UPLOAD_MB: "50"
+      MAX_CONCURRENT_JOBS: "2"
+      MAX_PAGES: "100"
+    secrets:
+      - api_key
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+secrets:
+  api_key:
+    file: ./secrets/api_key

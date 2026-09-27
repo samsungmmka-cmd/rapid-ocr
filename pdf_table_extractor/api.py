@@ -4,7 +4,9 @@ Run:   uvicorn pdf_table_extractor.api:app --host 0.0.0.0 --port 8000
 Docs:  http://localhost:8000/docs
 
 Environment:
-  API_KEY               if set, requests must send header ``X-API-Key``
+  APP_ENV               "production" makes an API key mandatory (startup fails without one)
+  API_KEY               accepted key(s) for header ``X-API-Key``; comma-separated for rotation
+  API_KEY_FILE          file holding the key(s) instead (Docker/Kubernetes secret); preferred
   MAX_UPLOAD_MB         upload size limit (default 50)
   MAX_CONCURRENT_JOBS   parallel extractions (default 2); others wait
   JOB_WAIT_SECONDS      how long a request waits for a free slot (default 120)
@@ -19,6 +21,7 @@ import logging
 import os
 import re
 import threading
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Literal
 
@@ -109,7 +112,14 @@ def _safe_name(filename: str | None) -> str:
     return name or "upload"
 
 
+@asynccontextmanager
+async def _lifespan(_app):
+    validate_security_config()
+    yield
+
+
 app = FastAPI(
+    lifespan=_lifespan,
     title="Document Extraction API",
     version=__version__,
     description="Extract full content (text, headings, fields, tables) or tables only from PDFs and images.",
@@ -130,10 +140,50 @@ def _table_engines() -> tuple[OCREngine, _OrientationOCR]:
     return OCREngine(), _OrientationOCR()
 
 
+MIN_KEY_LENGTH = 24
+
+
+def _api_keys() -> list[str]:
+    """Configured keys: API_KEY_FILE (secret mount) wins over API_KEY.
+    Several keys (comma/newline separated) allow zero-downtime rotation."""
+    raw = os.getenv("API_KEY", "")
+    path = os.getenv("API_KEY_FILE")
+    if path:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                raw = fh.read()
+        except OSError as exc:
+            raise RuntimeError(f"API_KEY_FILE unreadable: {exc}") from exc
+    return [k.strip() for k in raw.replace("\n", ",").split(",") if k.strip()]
+
+
+def _production() -> bool:
+    return os.getenv("APP_ENV", "").lower() in {"prod", "production"}
+
+
+def validate_security_config() -> None:
+    """Fail closed: in production the service must not start without a strong key."""
+    keys = _api_keys()
+    if _production():
+        if not keys:
+            raise RuntimeError("APP_ENV=production requires API_KEY or API_KEY_FILE")
+        weak = [k for k in keys if len(k) < MIN_KEY_LENGTH]
+        if weak:
+            raise RuntimeError(f"API keys must be at least {MIN_KEY_LENGTH} characters")
+    elif not keys:
+        log.warning("API_KEY not set: the API is unauthenticated (development only)")
+
+
 def _check_key(x_api_key: str | None = Header(default=None)) -> None:
-    expected = os.getenv("API_KEY")
-    if expected and not (x_api_key and hmac.compare_digest(x_api_key, expected)):
-        raise HTTPException(status_code=401, detail="invalid or missing X-API-Key")
+    keys = _api_keys()
+    if not keys and not _production():
+        return
+    # Compare against every key (constant time per key) so timing leaks nothing.
+    ok = False
+    for key in keys:
+        ok |= bool(x_api_key) and hmac.compare_digest(x_api_key.encode(), key.encode())
+    if not ok:
+        raise HTTPException(status_code=401, detail="invalid or missing X-API-Key", headers={"WWW-Authenticate": "ApiKey"})
 
 
 def _parse_pages(pages: str | None) -> list[int] | None:

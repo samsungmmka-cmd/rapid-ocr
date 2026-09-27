@@ -96,3 +96,30 @@ def test_page_range_expansion_is_bounded(client, simple_pdf):
         parse_pages("1-100000000")
     r = client.post("/v1/extract?pages=1-100000000", files={"file": ("s.pdf", simple_pdf.read_bytes())})
     assert r.status_code == 422
+
+
+def test_production_requires_strong_key(monkeypatch, tmp_path):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("API_KEY", raising=False)
+    monkeypatch.delenv("API_KEY_FILE", raising=False)
+    with pytest.raises(RuntimeError):
+        with TestClient(api_module.app):  # startup runs the check
+            pass
+    monkeypatch.setenv("API_KEY", "short")
+    with pytest.raises(RuntimeError):
+        api_module.validate_security_config()
+
+
+def test_key_file_and_rotation(monkeypatch, tmp_path, simple_pdf):
+    old, new = "o" * 32, "n" * 32
+    secret = tmp_path / "api_key"
+    secret.write_text(f"{old}\n{new}\n")
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("API_KEY_FILE", str(secret))
+    with TestClient(api_module.app) as c:
+        files = {"file": ("s.pdf", simple_pdf.read_bytes())}
+        assert c.post("/v1/extract?content=tables", files=files).status_code == 401
+        assert c.post("/v1/extract?content=tables", files=files, headers={"X-API-Key": "wrong"}).status_code == 401
+        for key in (old, new):
+            assert c.post("/v1/extract?content=tables", files=files, headers={"X-API-Key": key}).status_code == 200
+        assert c.get("/health").status_code == 200  # load-balancer probe stays open

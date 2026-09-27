@@ -78,6 +78,25 @@ Configure it with environment variables:
 * `MAX_PAGES` sets pages per document (default 100).
 * `MAX_PIXELS` sets pixels per decoded image or rendered page (default 60,000,000).
 
+### Production deployment with an API key
+
+With `APP_ENV=production`, the API refuses to start unless a key of at least 24 characters is configured. It fails closed. Every `/v1/*` call must then send `X-API-Key`. `/health` stays open for load-balancer probes.
+
+1. Generate a key, and never commit it (`secrets/` and `.env` are git-ignored):
+   ```bash
+   mkdir -p secrets && (umask 077; python -c "import secrets; print(secrets.token_urlsafe(32))" > secrets/api_key)
+   ```
+2. Run it with Docker. The key is mounted as a Docker secret at `/run/secrets/api_key`, not as an environment variable, so it doesn't appear in `docker inspect`:
+   ```bash
+   docker compose up -d --build
+   curl -H "X-API-Key: $(cat secrets/api_key)" -F file=@data/invoice.pdf localhost:8000/v1/extract
+   ```
+   Or run it without Docker: `APP_ENV=production API_KEY_FILE=secrets/api_key uvicorn pdf_table_extractor.api:app`.
+3. On Kubernetes or a cloud host, store the key in the platform's secret manager and mount it as a file. Point `API_KEY_FILE` at that file, or inject it as the `API_KEY` environment variable.
+4. To rotate a key, put the new and old keys in the secret, one per line or comma-separated. Move clients to the new key, then remove the old one. No downtime is needed.
+
+Serve the API behind HTTPS, through a reverse proxy or load balancer, so the key is never sent in clear text.
+
 Hardening: oversized requests are rejected before multipart parsing. Image frames and PDF pages are validated from their headers and decoded one at a time, with pixel caps. Page ranges are bounded, and client filenames are reduced to a clean base name. When `API_KEY` is unset the API is open, so set it, or put the API behind an authenticating gateway, in production.
 
 Errors return JSON `{"error", "detail"}` with these status codes:
