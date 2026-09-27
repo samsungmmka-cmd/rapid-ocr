@@ -1,6 +1,8 @@
 pymupdf>=1.24
 rapidocr>=3.0
 onnxruntime>=1.17
-opencv-python>=4.8
+opencv-python-headless>=4.8
 numpy>=1.24
 pillow>=10.0
+fastapi>=0.110
+python-multipart>=0.0.9

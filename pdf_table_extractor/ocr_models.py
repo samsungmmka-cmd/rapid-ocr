@@ -115,6 +115,10 @@ class OCRModels:
         from rapidocr import LangRec, ModelType, OCRVersion
 
         params = dict(self._base_params)
+        import os
+
+        if os.getenv("OCR_MODEL_DIR"):  # writable model cache, e.g. /tmp on serverless hosts
+            params["Global.model_root_dir"] = os.environ["OCR_MODEL_DIR"]
         if name == "medium":
             params["Rec.model_type"] = ModelType.MEDIUM
         elif name == "en":

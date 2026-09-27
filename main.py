@@ -1,13 +1,15 @@
-# """CLI entry point. Equivalent to ``python -m pdf_table_extractor``.
+"""Project entry point.
 
-# Example:
-#     python main.py package.pdf -o output            # JSON + CSV + Markdown
-#     python main.py package.pdf --stdout --pages 1-2 # JSON to stdout
-# """
+* Vercel / ASGI servers: imports ``app`` (the FastAPI instance) from here,
+  e.g. ``uvicorn main:app``.
+* Command line: ``python main.py package.pdf -o output`` (same as
+  ``python -m pdf_table_extractor``).
+"""
 
-# import sys
+import sys
 
-# from pdf_table_extractor.cli import main
+from pdf_table_extractor.api import app  # noqa: F401  (top-level FastAPI app for Vercel)
+from pdf_table_extractor.cli import main
 
-# if __name__ == "__main__":
-#     sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())
