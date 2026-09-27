@@ -82,17 +82,18 @@ Configure it with environment variables:
 
 With `APP_ENV=production`, the API refuses to start unless a key of at least 24 characters is configured. It fails closed. Every `/v1/*` call must then send `X-API-Key`. `/health` stays open for load-balancer probes.
 
-1. Generate a key, and never commit it (`secrets/` and `.env` are git-ignored):
+1. Put the key in `.env`, which is git-ignored and never copied into the image:
    ```bash
-   mkdir -p secrets && (umask 077; python -c "import secrets; print(secrets.token_urlsafe(32))" > secrets/api_key)
+   cp .env.example .env
+   python -c "import secrets; print(secrets.token_urlsafe(32))"   # paste as API_KEY in .env
    ```
-2. Run it with Docker. The key is mounted as a Docker secret at `/run/secrets/api_key`, not as an environment variable, so it doesn't appear in `docker inspect`:
+2. Run it with Docker. Compose loads `.env` into the container:
    ```bash
    docker compose up -d --build
-   curl -H "X-API-Key: $(cat secrets/api_key)" -F file=@data/invoice.pdf localhost:8000/v1/extract
+   curl -H "X-API-Key: <your key>" -F file=@data/invoice.pdf localhost:8000/v1/extract
    ```
-   Or run it without Docker: `APP_ENV=production API_KEY_FILE=secrets/api_key uvicorn pdf_table_extractor.api:app`.
-3. On Kubernetes or a cloud host, store the key in the platform's secret manager and mount it as a file. Point `API_KEY_FILE` at that file, or inject it as the `API_KEY` environment variable.
+   Or run it without Docker: `set -a; . ./.env; set +a; uvicorn app:app`.
+3. On Vercel, Kubernetes or a cloud host, set `API_KEY` (and `APP_ENV=production`) in the platform's environment-variable or secret settings.
 4. To rotate a key, put the new and old keys in the secret, one per line or comma-separated. Move clients to the new key, then remove the old one. No downtime is needed.
 
 **Vercel and other serverless hosts.** `main.py` exposes the FastAPI `app` that Vercel detects. Set `APP_ENV`, `API_KEY` (marked sensitive) and `OCR_MODEL_DIR=/tmp/rapidocr` in the project's environment variables. The dependency bundle is about 411 MB, under Vercel's 500 MB limit. That depends on installing only the headless OpenCV build. `rapidocr` insists on the full `opencv-python` package (116 MB, needs graphics libraries), and the local shim in `vendor/opencv-python-shim` (plus a `[tool.uv]` override in `pyproject.toml`) satisfies that requirement with the headless build instead. Vercel rejects uploads above 4.5 MB.
